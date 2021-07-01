@@ -47,9 +47,12 @@ comentarios_lc_dicc <- comentarios_lc_2020_2021 %>% select(id,fecha_nota,post) %
 comentarios_lc_dicc_largo <- comentarios_lc_dicc %>%
   gather('topic','frec',-c(1:4)) %>% mutate(topic = str_remove_all(topic, '_p'))
 # armamos una tabla de frecuencias por semana
-tabla_topicos <- comentarios_lc_dicc_largo %>% 
+tabla_topicos_fb <- comentarios_lc_dicc_largo %>% 
   group_by(Semanas = ceiling_date(fecha_nota, "1 week")) %>%
   group_by(Semanas,topic) %>% summarise(frec=sum(frec)) %>% ungroup()
+tabla_sum_topicos_fb <- comentarios_lc_dicc_largo %>% 
+  group_by(Semanas = ceiling_date(fecha_nota, "1 week")) %>%
+  group_by(Semanas) %>% summarise(frec=sum(frec)) %>% ungroup()
 # hacemos las visualizaciones
 # armamos una tabla de frecuencias por semana de comentarios
 tabla_comentarios <- comentarios_lc_2020_2021 %>% 
@@ -79,10 +82,7 @@ tabla_comentarios %>%
 dev.off()
 # hacemos una visualización de las frecuencias generales de menciones
 png('./viz/graf_05.png', width = 1200, height = 600, res = 150)
-tabla_topicos %>% 
-  select(-topic) %>% 
-  group_by(Semanas) %>% 
-  summarise(frec = sum(frec)) %>% 
+tabla_topicos_fb %>% 
   ggplot(aes(x=Semanas,y=frec)) +
   geom_line(color='skyblue', size = 1, show.legend = F) +
   stat_smooth(geom = 'line', se = F, color = 'red', size = .8, alpha = .5) +
@@ -93,6 +93,72 @@ tabla_topicos %>%
        title = expression(paste('La COVID en los comentarios de lxs lectorxs de',
                                 italic(" La Capital "), '(Mar del Plata, 2020-2021)')),
        subtitle = 'Frecuencia semanal de menciones totales sobre tópicos relacionados con la pandemia',
+       caption = expression(paste('Fuente: ',italic("La Capital")))) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = .5),
+        plot.subtitle = element_text(hjust = .5),
+        strip.text = element_text(size = 10, color = "black", face = "bold"),
+        strip.background = element_rect(fill = 'grey90'),
+        axis.text = element_text(color = 'black', size = 7.5),
+        axis.text.x = element_text(angle = -90, vjust = 0.1, size = 6.5))
+dev.off()
+# hacemos una unificación de las dos series temporales 
+png('./viz/graf_04_05.png', width = 1200, height = 600, res = 150)
+tabla_comentarios %>% 
+  ggplot(aes(x=Semanas,y=rescale(frec,c(0,10)))) +
+  geom_line(color='blue', size = 1, show.legend = F) +
+  stat_smooth(geom = 'line', se = F, color = 'skyblue', size = .8, alpha = .8) +
+  geom_line(aes(x=Semanas,
+                y=rescale((tabla_sum_topicos_fb$frec/tabla_comentarios$frec),c(0,10))), 
+            color='purple', size = 1, show.legend = F, data = tabla_sum_topicos) +
+  stat_smooth(aes(x=Semanas,
+                  y=rescale((tabla_sum_topicos_fb$frec/tabla_comentarios$frec),c(0,10))), geom = 'line', se = F, 
+              color = 'violet', size = .8, alpha = .7) +
+  #geom_line(aes(x=Semanas,
+                #y=rescale((tabla_comentarios$frec/tabla_notas$frec),c(0,10))), 
+            #color='green', size = 1, show.legend = F, data = tabla_sum_topicos) +
+  annotate("text", x = as.Date('2020-01-13'), y = 5, 
+           label = "valores reescalados", size = 3, 
+           color = 'grey20', angle = -90) +
+  scale_x_date(date_breaks = "1 week", 
+               labels = label_date_short(format = c("%Y", "%b", "%d"), sep = "-"),
+               expand=c(0,0)) +
+  labs(y=NULL,x=NULL,
+       title = 'La COVID en la agenda mediática local (Mar del Plata, 2020-2021)',
+       subtitle = 'Frecuencia semanal de comentarios y media de menciones sobre tópicos relacionados con la pandemia',
+       caption = expression(paste('Fuente: ',italic("La Capital")))) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = .5),
+        plot.subtitle = element_text(hjust = .5),
+        strip.text = element_text(size = 10, color = "black", face = "bold"),
+        strip.background = element_rect(fill = 'grey90'),
+        axis.text = element_text(color = 'black', size = 7.5),
+        axis.text.x = element_text(angle = -90, vjust = 0.1, size = 6.5))
+dev.off()
+# hacemos una unificación de las dos series temporales 
+png('./viz/graf_00_04.png', width = 1200, height = 600, res = 150)
+tabla_notas %>% 
+  ggplot(aes(x=Semanas,y=rescale(frec,c(0,10)))) +
+  geom_line(color='blue', size = 1, show.legend = F) +
+  stat_smooth(geom = 'line', se = F, color = 'skyblue', size = .8, alpha = .8) +
+  geom_line(aes(x=Semanas,
+                y=rescale((tabla_comentarios$frec/tabla_notas$frec),c(0,10))), 
+            color='purple', size = 1, show.legend = F, data = tabla_sum_topicos) +
+  stat_smooth(aes(x=Semanas,
+                  y=rescale((tabla_sum_topicos_fb$frec/tabla_comentarios$frec),c(0,10))), geom = 'line', se = F, 
+              color = 'violet', size = .8, alpha = .7) +
+  #geom_line(aes(x=Semanas,
+  #y=rescale((tabla_comentarios$frec/tabla_notas$frec),c(0,10))), 
+  #color='green', size = 1, show.legend = F, data = tabla_sum_topicos) +
+  annotate("text", x = as.Date('2020-01-13'), y = 7.5, 
+           label = "valores reescalados", size = 3, 
+           color = 'grey20', angle = -90) +
+  scale_x_date(date_breaks = "1 week", 
+               labels = label_date_short(format = c("%Y", "%b", "%d"), sep = "-"),
+               expand=c(0,0)) +
+  labs(y=NULL,x=NULL,
+       title = 'La COVID en la agenda mediática local (Mar del Plata, 2020-2021)',
+       subtitle = 'Frecuencia semanal de notas y media de comentarios por nota sobre tópicos relacionados con la pandemia',
        caption = expression(paste('Fuente: ',italic("La Capital")))) +
   theme_classic() +
   theme(plot.title = element_text(hjust = .5),
