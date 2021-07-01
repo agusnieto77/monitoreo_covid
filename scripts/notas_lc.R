@@ -8,7 +8,8 @@ require(sf)
 require(ggpubr)
 require(kableExtra)
 require(ggsflabel)
-#####----Cargamos--las--base--de--datos--de--las--notas--###########
+require(treemap)
+#####----Cargamos--la--base--de--datos--con--las--notas--###########
 notas_lc <- readRDS('./data/notas_lc.rds')
 #####----Contamos--menciones-covid-y-afines--#######################
 # creamos vectores de términos
@@ -40,36 +41,66 @@ notas_lc_dicc <- notas_lc %>%
          Vacunas       = str_count(str_to_lower(nota), paste(Vacunas, collapse = "|")),
          Salud         = str_count(str_to_lower(nota), paste(Salud, collapse = "|")),
          CBE           = str_count(str_to_lower(nota), paste(CBE, collapse = "|")))
-# notas_lc_dicc_semanas <- notas_lc_dicc %>% dplyr::mutate(semana = week(fecha), .after = fecha)
-# notas_lc_dicc %>% mutate(sum_topic = rowSums(.[9:17])) %>% filter(sum_topic > 0) %>% saveRDS('./data/links_notas_lc_para_comentarios_fb.rds')
-# control <- notas_lc_dicc %>% mutate(semana=week(fecha), año=year(fecha)) %>% group_by(año) %>% count(semana) %>% ungroup()
-# control <- control  %>% mutate(x=row_number())
-# control %>% unite('año_semana', año:semana, sep= '_')  %>% ggplot(aes(x=x,y=n)) + geom_line()
 # reorganizamos las variables
 notas_lc_dicc_largo <- notas_lc_dicc %>% gather('topic','frec',-c(1:8))
-# armamos una tabla de frecuencias por semana
+# armamos tre tablas de frecuencias por semana
+(tabla_notas <- notas_lc_dicc %>% 
+    mutate(sum_topic = rowSums(.[9:17])) %>% 
+    filter(sum_topic > 0) %>% 
+    group_by(Semanas = ceiling_date(fecha, "1 week")) %>% 
+    group_by(Semanas) %>% 
+    summarise(frec = n()))
 tabla_topicos <- notas_lc_dicc_largo %>% 
   group_by(Semanas = ceiling_date(fecha, "1 week")) %>%
   group_by(Semanas,topic) %>% summarise(frec=sum(frec)) %>% ungroup()
+tabla_sum_topicos <- notas_lc_dicc_largo %>% 
+  group_by(Semanas = ceiling_date(fecha, "1 week")) %>%
+  group_by(Semanas) %>% summarise(frec=sum(frec)) %>% ungroup()
 # hacemos las visualizaciones
 # hacemos una visualización de las frecuencias generales de notas covid
 png('./viz/graf_00.png', width = 1200, height = 600, res = 150)
-notas_lc_dicc %>% 
-  mutate(sum_topic = rowSums(.[9:17])) %>% 
-  filter(sum_topic > 0) %>% 
-  group_by(Semanas = ceiling_date(fecha, "1 week")) %>% 
-  group_by(Semanas) %>% 
-  summarise(frec = n()) %>% 
+tabla_notas %>% 
   ggplot(aes(x=Semanas,y=frec)) +
+  geom_segment(aes(x = as.Date('2020-07-12'), y = 110, 
+                   xend = as.Date('2020-07-12'), yend = 0)) +
+  geom_label(aes(x=as.Date('2020-07-12'), y=110), 
+             label='de 6 a 93 casos x sem', size = 2.5, hjust = 0) +
+  geom_segment(aes(x = as.Date('2020-03-24'), y = 100, 
+                   xend = as.Date('2020-03-24'), yend = 0)) +
+  geom_label(aes(x=as.Date('2020-03-24'), y=100), 
+             label='24/03/20: 1er fallecimiento MDP', size = 2.5, hjust = 0) +
+  geom_segment(aes(x = as.Date('2020-03-12'), y = 110, 
+                   xend = as.Date('2020-03-12'), yend = 0)) +
+  geom_label(aes(x=as.Date('2020-03-12'), y=110), 
+             label='12/03/20: 1er caso MDP', size = 2.5, hjust = 0) +
+  geom_segment(aes(x = as.Date('2020-08-30'), y = 95, 
+                   xend = as.Date('2020-08-30'), yend = 0)) +
+  geom_label(aes(x=as.Date('2020-08-30'), y=95), 
+             label='de 543 a 1274 casos x sem', size = 2.5, hjust = 0) +
+  geom_segment(aes(x = as.Date('2021-01-10'), y = 65, 
+                   xend = as.Date('2021-01-10'), yend = 0)) +
+  geom_label(aes(x=as.Date('2021-01-10'), y=65), 
+             label='pico de casos', size = 2.5, hjust = 0) +
+  geom_segment(aes(x = as.Date('2021-05-02'), y = 88, 
+                   xend = as.Date('2021-05-02'), yend = 0)) +
+  geom_label(aes(x=as.Date('2021-05-02'), y=88), 
+             label='pico de casos', size = 2.5, hjust = 1) +
+  geom_segment(aes(x = as.Date('2021-06-06'), y = 78, 
+                   xend = as.Date('2021-06-06'), yend = 0)) +
+  geom_label(aes(x=as.Date('2021-06-06'), y=78), 
+             label='pico de casos', size = 2.5, hjust = 1) +
+  geom_hline(yintercept = 0) +
   geom_line(color='skyblue', size = 1, show.legend = F) +
   stat_smooth(geom = 'line', se = F, color = 'red', size = .8, alpha = .5) +
   scale_x_date(date_breaks = "1 week", 
                labels = label_date_short(format = c("%Y", "%b", "%d"), sep = "-"),
                expand=c(0,0)) +
+  scale_y_continuous(limits =  c(0,115),
+                     breaks = seq(0,115,25)) +
   labs(y=NULL,x=NULL,
        title = 'La COVID en la agenda mediática local (Mar del Plata, 2020-2021)',
        subtitle = 'Frecuencia semanal de notas totales sobre tópicos relacionados con la pandemia',
-       caption = expression(paste('Fuente: ',italic("La Capital")))) +
+       caption = expression(paste('Notas: 4.427 - Fuente: ',italic("La Capital")))) +
   theme_classic() +
   theme(plot.title = element_text(hjust = .5),
         plot.subtitle = element_text(hjust = .5),
@@ -80,19 +111,75 @@ notas_lc_dicc %>%
 dev.off()
 # hacemos una visualización de las frecuencias generales de menciones
 png('./viz/graf_01.png', width = 1200, height = 600, res = 150)
-tabla_topicos %>% 
-  select(-topic) %>% 
-  group_by(Semanas) %>% 
-  summarise(frec = sum(frec)) %>% 
+tabla_sum_topicos %>% 
   ggplot(aes(x=Semanas,y=frec)) +
+  geom_segment(aes(x = as.Date('2020-07-12'), y = 1000, 
+                   xend = as.Date('2020-07-12'), yend = 0)) +
+  geom_label(aes(x=as.Date('2020-07-12'), y=1000), 
+             label='de 6 a 93 casos x sem', size = 2.5, hjust = 0) +
+  geom_segment(aes(x = as.Date('2020-03-24'), y = 900, 
+                   xend = as.Date('2020-03-24'), yend = 0)) +
+  geom_label(aes(x=as.Date('2020-03-24'), y=900), 
+             label='24/03/20: 1er fallecimiento MDP', size = 2.5, hjust = 0) +
+  geom_segment(aes(x = as.Date('2020-03-12'), y = 750, 
+                   xend = as.Date('2020-03-12'), yend = 0)) +
+  geom_label(aes(x=as.Date('2020-03-12'), y=750), 
+             label='12/03/20: 1er caso MDP', size = 2.5, hjust = 0) +
+  geom_segment(aes(x = as.Date('2020-08-30'), y = 850, 
+                   xend = as.Date('2020-08-30'), yend = 0)) +
+  geom_label(aes(x=as.Date('2020-08-30'), y=850), 
+             label='de 543 a 1274 casos x sem', size = 2.5, hjust = 0) +
+  geom_segment(aes(x = as.Date('2021-01-10'), y = 450, 
+                   xend = as.Date('2021-01-10'), yend = 0)) +
+  geom_label(aes(x=as.Date('2021-01-10'), y=450), 
+             label='pico de casos', size = 2.5, hjust = 0) +
+  geom_segment(aes(x = as.Date('2021-05-02'), y = 880, 
+                   xend = as.Date('2021-05-02'), yend = 0)) +
+  geom_label(aes(x=as.Date('2021-05-02'), y=880), 
+             label='pico de casos', size = 2.5, hjust = 1) +
+  geom_segment(aes(x = as.Date('2021-06-06'), y = 780, 
+                   xend = as.Date('2021-06-06'), yend = 0)) +
+  geom_label(aes(x=as.Date('2021-06-06'), y=780), 
+             label='pico de casos', size = 2.5, hjust = 1) +
+  geom_hline(yintercept = 0) +
   geom_line(color='skyblue', size = 1, show.legend = F) +
   stat_smooth(geom = 'line', se = F, color = 'red', size = .8, alpha = .5) +
   scale_x_date(date_breaks = "1 week", 
                labels = label_date_short(format = c("%Y", "%b", "%d"), sep = "-"),
                expand=c(0,0)) +
+  scale_y_continuous(limits =  c(0,1000),
+                     breaks = seq(0,1000,250)) +
   labs(y=NULL,x=NULL,
        title = 'La COVID en la agenda mediática local (Mar del Plata, 2020-2021)',
        subtitle = 'Frecuencia semanal de menciones totales sobre tópicos relacionados con la pandemia',
+       caption = expression(paste('Menciones: 32.178 - Fuente: ',italic("La Capital")))) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = .5),
+        plot.subtitle = element_text(hjust = .5),
+        strip.text = element_text(size = 10, color = "black", face = "bold"),
+        strip.background = element_rect(fill = 'grey90'),
+        axis.text = element_text(color = 'black', size = 7.5),
+        axis.text.x = element_text(angle = -90, vjust = 0.1, size = 6.5))
+dev.off()
+# hacemos una unificación de las dos series temporales 
+png('./viz/graf_00_01.png', width = 1200, height = 600, res = 150)
+tabla_notas %>% 
+  ggplot(aes(x=Semanas,y=rescale(frec,c(0,10)))) +
+  geom_line(color='blue', size = 1, show.legend = F) +
+  stat_smooth(geom = 'line', se = F, color = 'skyblue', size = .8, alpha = .8) +
+  geom_line(aes(x=Semanas,y=rescale((tabla_sum_topicos$frec/tabla_notas$frec),c(0,10))), 
+            color='purple', size = 1, show.legend = F, data = tabla_sum_topicos) +
+  stat_smooth(aes(x=Semanas,y=rescale((tabla_sum_topicos$frec/tabla_notas$frec),c(0,10))), geom = 'line', se = F, 
+              color = 'violet', size = .8, alpha = .7) +
+  annotate("text", x = as.Date('2020-01-13'), y = 5, 
+           label = "valores reescalados", size = 3, 
+           color = 'grey20', angle = -90) +
+  scale_x_date(date_breaks = "1 week", 
+               labels = label_date_short(format = c("%Y", "%b", "%d"), sep = "-"),
+               expand=c(0,0)) +
+  labs(y=NULL,x=NULL,
+       title = 'La COVID en la agenda mediática local (Mar del Plata, 2020-2021)',
+       subtitle = 'Frecuencia semanal de notas y media de menciones sobre tópicos relacionados con la pandemia',
        caption = expression(paste('Fuente: ',italic("La Capital")))) +
   theme_classic() +
   theme(plot.title = element_text(hjust = .5),
@@ -101,6 +188,17 @@ tabla_topicos %>%
         strip.background = element_rect(fill = 'grey90'),
         axis.text = element_text(color = 'black', size = 7.5),
         axis.text.x = element_text(angle = -90, vjust = 0.1, size = 6.5))
+dev.off()
+
+# hacemos una visualización para comparar tópicos en mosaico
+png('./viz/graf_treemap.png', width = 1400, height = 900, res = 150)
+treemap(tabla_topicos,
+        index="topic",
+        vSize="frec",
+        type="index",
+        title = 'Frecuencia de tópicos relacionados con la pandemia en la agenda mediática local (Mar del Plata, 2020-2021)',
+        fontsize.title = 12
+)
 dev.off()
 # hacemos una visualización para comparar tópicos
 png('./viz/graf_02.png', width = 1400, height = 800, res = 150)
@@ -358,18 +456,18 @@ tabla_ibpc_20 <- st_set_geometry(barrios, NULL) %>% filter(Barrio != 'zona sur')
   select(ID, Barrio, IBPC) %>% arrange(desc(IBPC)) %>% top_n(20) %>% 
   mutate(order = 20:1)
 # geom_bar top 20 
-(viz_bar_top_20 <- ggplot(aes(x=order, y=IBPC, fill=IBPC), data = tabla_ibpc_20 %>% filter(IBPC < 1.2)) +
+(viz_bar_top_20 <- ggplot(aes(x=order, y=IBPC, fill=IBPC), data = tabla_ibpc_20 %>% filter(IBPC < 2)) +
   geom_bar(stat = 'identity') +
   geom_bar(aes(x=order, y=IBPC), stat = 'identity', fill = alpha("purple",0.9), 
-           data = tabla_ibpc_20 %>% filter(IBPC > 1.2)) +
+           data = tabla_ibpc_20 %>% filter(IBPC > 2)) +
   geom_text(aes(label=Barrio),color = 'black', hjust = 0, size = 2.23, nudge_y = .2, 
-            data = tabla_ibpc_20 %>% filter(IBPC < 1.2)) +
+            data = tabla_ibpc_20 %>% filter(IBPC < 2)) +
   annotate('text', x = 20, y = 4, size = 2.23, label = 'CENTRO', color = 'white') +
   annotate('text', x = 19, y = 2.7, size = 2.23, label = 'BATAN') +
   scale_fill_gradientn(colours=rev(brewer.pal(6,"RdYlBu"))) +
-  scale_x_continuous(breaks = seq(1, 20, by=1),
-                     label = c("123","33","5","83","92","97","66","19","42","79","15",
-                               "113","107","29","63","59","23","58","100","44"),
+  scale_x_continuous(breaks = seq(1, 20, by=1), # paste(tabla_ibpc_20 %>% arrange(order) %>% select(ID) %>% as_vector() %>% as.vector() %>% as.character(), collapse = "','")
+                     label = c('46','83','51','40','33','92','19','66','15','42',
+                               '113','79','107','29','63','59','23','58','100','44'),
                      expand=c(0.01,0.01)) +
 scale_y_continuous(expand=c(0.01,0.01)) +
   coord_flip() +
@@ -397,10 +495,10 @@ barrios <- barrios %>% mutate(IIBPC = round((sum_topic/MencionesB)/10,2),
     geom_sf(fill = alpha("purple",0.9)) +
     geom_sf(aes(fill = IIBPC), data = barrios %>% filter(Barrio !='GENERAL ROCA')) +
     geom_sf_text(aes(label=ID), fontface = "bold", color = 'black', size = 2.5, 
-                 data = barrios %>% filter(IIBPC > 0.85 & IIBPC < 1.81)) +
-    geom_sf_text_repel(aes(label=ID), fontface = "bold", color = 'black', size = 2.5, 
-                       nudge_x = -8, nudge_y = 1,
-                 data = barrios %>% filter(IIBPC > 1.80)) +
+                 data = barrios %>% filter(IIBPC > 0.99 & IIBPC < 2)) +
+    #geom_sf_text_repel(aes(label=ID), fontface = "bold", color = 'black', size = 2.5, 
+                       #nudge_x = -8, nudge_y = 1,
+                 #data = barrios %>% filter(IIBPC > 1.80)) +
     scale_fill_gradientn(colours=rev(brewer.pal(6,"RdYlBu")),
                          name="",
                          na.value = "grey100", 
@@ -447,9 +545,9 @@ tabla_ibpc_20 <- st_set_geometry(barrios, NULL) %>% filter(Barrio != 'zona sur')
               data = tabla_ibpc_20 %>% filter(IIBPC < 2.2)) +
     annotate('text', x = 20, y = 2.9, size = 2.23, label = 'GENERAL ROCA', color = 'white') +
     scale_fill_gradientn(colours=rev(brewer.pal(6,"RdYlBu"))) +
-    scale_x_continuous(breaks = seq(1, 20, by=1),
-                       label = c('16','112','115','71','46','107','23','58','61','38', 
-                                 '100','59','48','51','15','18','29','64','53','55'),
+    scale_x_continuous(breaks = seq(1, 20, by=1), # paste(tabla_ibpc_20 %>% arrange(order) %>% select(ID) %>% as_vector() %>% as.vector() %>% as.character(), collapse = "','")
+                       label = c('113','21','61','38','23','107','46','59','58','48',
+                                 '75','18','100','60','15','51','29','64','53','55'),
                        expand=c(0.01,0.01)) +
     scale_y_continuous(expand=c(0.01,0.01)) +
     coord_flip() +
@@ -513,7 +611,7 @@ tabla_ibpcd_20 <- st_set_geometry(barrios_gather, NULL) %>% filter(Barrio != 'zo
                             Barrio == 'AMEGHINO FLORENTINO' ~ 'FLORENTINO AMEGHINO',
                             Barrio == 'SAN EDUARDO DE CHAPADMALAL' ~ 'SAN EDUARDO',
                             TRUE ~ as.character(Barrio))) %>% 
-  select(ID, Barrio, IIBPCD) %>% arrange(desc(IIBPCD)) %>% top_n(20) %>% 
+  select(ID, Barrio, IIBPCD) %>% arrange(desc(IIBPCD)) %>% .[1:20,] %>% 
   mutate(order = 20:1)
 # geom_bar top 20 
 (viz_bar_top_20_3 <- ggplot(aes(x=order, y=IIBPCD, fill=IIBPCD), data = tabla_ibpcd_20) +
@@ -521,8 +619,8 @@ tabla_ibpcd_20 <- st_set_geometry(barrios_gather, NULL) %>% filter(Barrio != 'zo
     geom_text(aes(label=Barrio),color = 'black', hjust = 0, size = 2.23, nudge_y = -0.085) +
     scale_fill_gradientn(colours=rev(brewer.pal(6,"RdYlBu"))) +
     scale_x_continuous(breaks = seq(1, 20, by=1),
-                       label = c('85','68','20','16','5','77','35','34','43','52','31',
-                                 '22','21','45','8','26','57','65','38','48'), # tabla_ibpcd_20 %>% arrange(IIBPCD) %>% select(order) %>% as_vector() %>% as.vector()
+                       label = c('87','34','16','68','52','31','20','5','43','35',
+                                 '77','45','21','8','57','22','65','38','48','26'), # paste(tabla_ibpcd_20 %>% arrange(order) %>% select(ID) %>% as_vector() %>% as.vector() %>% as.character(), collapse = "','")
                        expand=c(0.01,0.01)) +
     scale_y_continuous(expand=c(0.01,0.01)) +
     coord_flip() +
@@ -619,3 +717,4 @@ annotate_figure(mapa_4,
                 bottom = text_grob(expression(paste("Fuente: ",italic("La Capital"))), 
                                    color = "grey40", size = 9, hjust = -3))
 dev.off()
+
